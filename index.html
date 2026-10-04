@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Verona is a small, statically typed systems programming language that compiles through LLVM.">
+  <title>Verona — A small systems language</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="landing">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Verona home"><span class="brand-mark" aria-hidden="true">V</span><span>Verona</span></a>
+    <nav aria-label="Primary navigation">
+      <a href="manual/">Manual</a>
+      <a href="https://github.com/diasbruno/verona">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="content">
+    <section class="landing-hero">
+      <div>
+        <p class="eyebrow">A small systems language</p>
+        <h1>Native code, clear data, deliberate boundaries.</h1>
+        <p class="lede">Verona is a statically typed language with an S-expression syntax. It compiles through LLVM and makes C interoperability an explicit part of the language model.</p>
+        <p class="actions"><a class="button" href="manual/">Read the manual</a><a class="button button-secondary" href="https://github.com/diasbruno/verona">View source</a></p>
+      </div>
+      <div class="hero-visual">
+        <img src="assets/calico.png" alt="A stylized calico cat illustration">
+      </div>
+    </section>
+
+    <section class="overview" aria-label="Highlights">
+      <article><h2>Typed native code</h2><p>Verona resolves and validates types before emitting LLVM IR and native artifacts.</p></article>
+      <article><h2>Data-oriented syntax</h2><p>Nominal products and sums make the shape of a program’s data explicit.</p></article>
+      <article><h2>A C ABI boundary</h2><p>Import C symbols and publish supported APIs with generated C headers.</p></article>
+    </section>
+
+    <section class="section start-grid">
+      <div>
+        <p class="eyebrow">Start here</p>
+        <h2>From source to artifact</h2>
+        <p>Reader features, macros, type resolution, LLVM lowering, and native linking form a compact compilation pipeline.</p>
+        <p class="flow" aria-label="Compilation pipeline"><span>source</span><b aria-hidden="true">→</b><span>types</span><b aria-hidden="true">→</b><span>LLVM</span><b aria-hidden="true">→</b><span>native artifact</span></p>
+      </div>
+      <div class="start-links">
+        <a href="manual/#language"><strong>Language guide</strong><span>Types, values, expressions, patterns, generics, and macros.</span></a>
+        <a href="manual/#c-abi"><strong>C interoperability</strong><span>Supported C ABI types, callbacks, exports, and generated headers.</span></a>
+        <a href="manual/#tooling"><strong>Compile and build</strong><span>Command-line options and declarative <code>verona.build</code> files.</span></a>
+      </div>
+    </section>
+
+    <section class="section resources">
+      <p class="eyebrow">Reference material</p>
+      <h2>Go deeper when you need to.</h2>
+      <div class="resource-grid">
+        <a href="manual/"><strong>Language manual</strong><span>The concise guide to using the language and compiler.</span></a>
+        <a href="https://github.com/diasbruno/verona/blob/development/docs/API.md"><strong>API reference</strong><span>Common Lisp embedding, compiler, backend, and driver APIs.</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer><p><strong>Verona</strong> is released under the <a href="https://github.com/diasbruno/verona/blob/development/license">Unlicense</a>.</p></footer>
+</body>
+</html>
