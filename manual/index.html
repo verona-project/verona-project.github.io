@@ -13,6 +13,7 @@
     <a class="brand" href="../" aria-label="Verona home"><span class="brand-mark" aria-hidden="true">V</span><span>Verona</span></a>
     <nav aria-label="Primary navigation">
       <a href="#language">Language</a>
+      <a href="#macros">Macros</a>
       <a href="#c-abi">C ABI</a>
       <a href="#compiler">Compiler</a>
       <a href="#tooling">Tooling</a>
@@ -24,7 +25,7 @@
       <p class="eyebrow">Reference manual</p>
       <h1>Verona, from source form to native boundary.</h1>
       <p class="lede">A compact guide to the language, its LLVM representations, its C ABI surface, compiler definitions, and build tooling.</p>
-      <nav class="toc" aria-label="Manual contents"><a href="#language">Language</a><a href="#c-abi">C ABI</a><a href="#compiler">Compiler surface</a><a href="#tooling">CLI and builds</a></nav>
+      <nav class="toc" aria-label="Manual contents"><a href="#language">Language</a><a href="#macros">Compile-time macros</a><a href="#c-abi">C ABI</a><a href="#compiler">Compiler surface</a><a href="#tooling">CLI and builds</a></nav>
     </section>
 
     <section class="section" id="language">
@@ -64,11 +65,44 @@
         <div><h3>Core expressions</h3><ul class="compact-list"><li><code>let</code>, <code>do</code>, and <code>return</code> bind, sequence, and return values.</li><li><code>array-of</code> and <code>index</code> create and access fixed arrays.</li><li><code>field</code> reads a product field; <code>match</code> destructures sums.</li><li><code>&amp;</code>, <code>deref</code>, <code>load</code>, <code>assign</code>, and <code>cast</code> express memory access explicitly.</li></ul></div>
       </div>
       <h3>Polymorphism and metaprogramming</h3>
-      <div class="feature-grid"><article><h4>Generics</h4><p>Generic declarations dispatch to exact-type implementations.</p></article><article><h4>Type parameters</h4><p><code>for</code> binds type parameters; calls specialize before LLVM lowering.</p></article><article><h4>Protocols</h4><p>Protocols describe operations and constrain polymorphic functions.</p></article><article><h4>Macros</h4><p>Compile-time macros transform syntax and may generate top-level definitions.</p></article></div>
+      <div class="feature-grid"><article><h4>Generics</h4><p>Generic declarations dispatch to exact-type implementations.</p></article><article><h4>Type parameters</h4><p><code>for</code> binds type parameters; calls specialize before LLVM lowering.</p></article><article><h4>Protocols</h4><p>Protocols describe operations and constrain polymorphic functions.</p></article><article><h4>Macros</h4><p>Compile-time macros transform S-expressions and may generate top-level definitions.</p></article></div>
       <h3>Modules, declarations, and reader features</h3>
       <div class="two-columns"><div><ul class="compact-list"><li><code>type</code> declares transparent aliases, opaque handles, products, and sums.</li><li><code>function</code>, <code>constant</code>, and <code>variable</code> introduce program definitions.</li><li><code>external-function</code> imports a C symbol; <code>native-export</code> exposes a compatible function to C.</li><li><code>import</code>, <code>export</code>, and <code>:as</code> organize dotted modules and qualified names.</li></ul></div><div><p>Prefix a form with <code>#+name</code> to include it when a reader feature is available, or <code>#-name</code> when it is not. Native compilation provides platform, architecture, pointer-width, endianness, and object-format features. Add project features with repeated <code>--feature NAME</code> options.</p><pre><code>#+darwin
 (external-function mach-task-self
   "mach_task_self" () u32)</code></pre></div></div>
+    </section>
+
+    <section class="section" id="macros">
+      <p class="eyebrow">Metaprogramming</p>
+      <h2>Compile-time functions</h2>
+      <p>Macro bodies evaluate ordinary S-expressions and return forms for the compiler to expand and compile. Source locations are retained by the compiler and restored after expansion. The declarations in the explicit <code>base</code> module are imported macros, not built-in evaluator functions.</p>
+      <h3>Evaluator bindings</h3>
+      <div class="table-scroll"><table><thead><tr><th>Function</th><th>Signature</th><th>Purpose</th></tr></thead><tbody>
+        <tr><td><code>+</code></td><td><code>(+ NUMBER...)</code></td><td>Bootstrap arithmetic for evaluator tests and simple bootstrap macros; not a general-purpose macro library.</td></tr>
+        <tr><td><code>definitions</code></td><td><code>(definitions FORM...)</code></td><td>Return zero or more top-level S-expression forms.</td></tr>
+        <tr><td><code>compiler:definition</code></td><td><code>(compiler:definition PRIMITIVE ARGUMENTS)</code></td><td>Build a compiler <code>%…</code> definition from its positional arguments; this powers the bundled <code>base</code> macros.</td></tr>
+        <tr><td><code>symbol</code></td><td><code>(symbol TEXT)</code></td><td>Construct an identifier from a non-empty string.</td></tr>
+        <tr><td><code>symbol-name</code></td><td><code>(symbol-name SYMBOL)</code></td><td>Return an identifier’s spelling.</td></tr>
+        <tr><td><code>symbol-concat</code></td><td><code>(symbol-concat PART...)</code></td><td>Join strings and identifiers into an identifier.</td></tr>
+        <tr><td><code>keyword</code></td><td><code>(keyword TEXT)</code></td><td>Construct an identifier for keyword-style conventions; it is not a reserved source keyword.</td></tr>
+        <tr><td><code>keyword-concat</code></td><td><code>(keyword-concat PART...)</code></td><td>Join strings and identifiers into an identifier for keyword-style conventions.</td></tr>
+        <tr><td><code>string-concat</code></td><td><code>(string-concat STRING...)</code></td><td>Join strings.</td></tr>
+        <tr><td><code>string-length</code></td><td><code>(string-length STRING)</code></td><td>Return a string’s character length.</td></tr>
+        <tr><td><code>substring</code></td><td><code>(substring STRING START [END])</code></td><td>Return the range beginning at zero-based <code>START</code> and ending before optional <code>END</code>.</td></tr>
+        <tr><td><code>list</code></td><td><code>(list VALUE...)</code></td><td>Construct a proper S-expression list.</td></tr>
+        <tr><td><code>cons</code></td><td><code>(cons VALUE LIST)</code></td><td>Prepend an S-expression value to a proper list.</td></tr>
+        <tr><td><code>car</code></td><td><code>(car LIST)</code></td><td>Return the first item of a non-empty proper list.</td></tr>
+        <tr><td><code>cdr</code></td><td><code>(cdr LIST)</code></td><td>Return all but the first item of a non-empty proper list.</td></tr>
+        <tr><td><code>append</code></td><td><code>(append LIST...)</code></td><td>Join proper lists.</td></tr>
+        <tr><td><code>length</code></td><td><code>(length VALUE)</code></td><td>Return the length of a string or proper list.</td></tr>
+      </tbody></table></div>
+      <h3>Reader forms</h3>
+      <p><code>'FORM</code> quotes an S-expression, <code>`FORM</code> quasiquotes a template, and <code>,FORM</code> evaluates and inserts an S-expression inside that template. They are reader and evaluator forms, not function bindings.</p>
+      <pre><code>(import base)
+
+(base:macro generated-function (type)
+  `(base:function ,(keyword-concat (keyword "generated-") ,type)
+     () ,type 42))</code></pre>
     </section>
 
     <section class="section" id="c-abi">
