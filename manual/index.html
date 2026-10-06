@@ -75,7 +75,7 @@
     <section class="section" id="macros">
       <p class="eyebrow">Metaprogramming</p>
       <h2>Compile-time functions</h2>
-      <p>Macro bodies evaluate ordinary S-expressions and return forms for the compiler to expand and compile. Source locations are retained by the compiler and restored after expansion. The declarations in the explicit <code>base</code> module are imported macros, not built-in evaluator functions.</p>
+      <p>Macro bodies evaluate ordinary S-expressions and return forms for the compiler to expand and compile. A macro returns one expression form inside executable code, or may return a top-level definition sequence at top level. Source locations are retained by the compiler and restored after expansion. The declarations in the explicit <code>base</code> module are imported macros, not built-in evaluator functions.</p>
       <h3>Evaluator bindings</h3>
       <div class="table-scroll"><table><thead><tr><th>Function</th><th>Signature</th><th>Purpose</th></tr></thead><tbody>
         <tr><td><code>+</code></td><td><code>(+ NUMBER...)</code></td><td>Bootstrap arithmetic for evaluator tests and simple bootstrap macros; not a general-purpose macro library.</td></tr>
