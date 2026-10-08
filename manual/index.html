@@ -31,7 +31,7 @@
     <section class="section" id="language">
       <p class="eyebrow">Language</p>
       <h2>Values, types, and expressions</h2>
-      <p>Names are case-sensitive. Comments begin with <code>;</code>. String and character literals are ASCII-only; strings are immutable NUL-terminated byte pointers.</p>
+      <p>Names are case-sensitive. Comments begin with <code>;</code>. String and character literals are ASCII-only; strings are immutable NUL-terminated byte pointers. Named control characters include <code>#\tab</code>, <code>#\newline</code>, and <code>#\return</code>. A <code>char</code> automatically widens where an integer is expected, including C character APIs.</p>
 
       <h3>LLVM-lowerable types</h3>
       <div class="table-scroll"><table>
@@ -183,7 +183,7 @@ export VERONA_LIBRARY_DIR="$HOME/.local/lib/verona"</code></pre>
       <p>These variables are only for Verona packages. Native C libraries remain build-specific: pass their locations with <code>-L</code>/<code>--library-path</code>, names with <code>-l</code>/<code>--library</code>, or use <code>pkg-config</code>.</p>
     </section>
 
-    <section class="section limits"><p class="eyebrow">Current limits</p><h2>Designed boundaries</h2><ul class="compact-list"><li>Unicode strings and characters are not supported yet.</li><li>Recursive inline type layouts are rejected.</li><li>Opaque values cannot be materialized or dereferenced.</li><li>Nested sum constructor patterns are not supported.</li><li>Numeric conversions are always explicit.</li></ul></section>
+    <section class="section limits"><p class="eyebrow">Current limits</p><h2>Designed boundaries</h2><ul class="compact-list"><li>Unicode strings and characters are not supported yet.</li><li>Recursive inline type layouts are rejected.</li><li>Opaque values cannot be materialized or dereferenced.</li><li>Nested sum constructor patterns are not supported.</li><li>Integer and floating-point conversions are explicit; <code>char</code> widens to an integer automatically.</li></ul></section>
   </main>
   <footer><p><strong>Verona</strong> is released under the <a href="https://github.com/diasbruno/verona/blob/development/license">Unlicense</a>.</p><p><a href="https://github.com/diasbruno/verona/blob/development/docs/API.md">API reference</a> · <a href="https://github.com/diasbruno/verona/blob/development/docs/ROADMAP.md">Roadmap</a> · <a href="https://github.com/diasbruno/verona">Source repository</a></p></footer>
 </body>
