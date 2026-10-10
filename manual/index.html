@@ -3,20 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A concise language and compiler manual for Verona.">
+  <meta name="description" content="A concise reference manual for the Verona language.">
   <title>Verona manual</title>
   <link rel="stylesheet" href="../styles.css">
+  <style>#libraries > pre { margin-bottom: 1.75rem; }</style>
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="../" aria-label="Verona home"><span class="brand-mark" aria-hidden="true">V</span><span>Verona</span></a>
     <nav aria-label="Primary navigation">
-      <a href="#language">Language</a>
-      <a href="#macros">Macros</a>
-      <a href="#c-abi">C ABI</a>
-      <a href="#compiler">Compiler</a>
-      <a href="#tooling">Tooling</a>
+      <a href="#compilation">Compilation</a><a href="#language">Language</a><a href="#libraries">Base</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a>
     </nav>
   </header>
 
@@ -24,33 +21,44 @@
     <section class="manual-intro">
       <p class="eyebrow">Reference manual</p>
       <h1>Verona, from source form to native boundary.</h1>
-      <p class="lede">A compact guide to the language, its LLVM representations, its C ABI surface, compiler definitions, and build tooling.</p>
-      <nav class="toc" aria-label="Manual contents"><a href="#language">Language</a><a href="#macros">Compile-time macros</a><a href="#c-abi">C ABI</a><a href="#compiler">Compiler surface</a><a href="#tooling">CLI and builds</a></nav>
+      <p class="lede">A guide to Verona’s programmable compilation model, core language, bundled base package, native boundary, and build environment.</p>
+      <nav class="toc" aria-label="Manual contents"><a href="#compilation">Two layers</a><a href="#language">Core language</a><a href="#libraries">Base library</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native boundary</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a></nav>
+    </section>
+
+    <section class="section" id="compilation">
+      <p class="eyebrow">1 — Foundation</p>
+      <h2>Two layers of compilation</h2>
+      <p>Verona has two cooperating compilation layers. The first is a metaprogramming layer: macros run at compile time, receive and return S-expressions, and can inspect, construct, combine, or generate the syntax that the next layer will compile. The second is the top-level-form compiler: it expands those forms, collects declarations, resolves signatures, and type-checks executable bodies.</p>
+      <p>This separation is deliberate. In the metaprogramming layer, a program is data: lists, identifiers, strings, and quoted templates. A macro can build a function, a protocol implementation, or a sequence of definitions without turning those declarations into runtime values.</p>
+      <pre><code>source
+  → reader syntax
+  → compile-time macro evaluation
+  → expanded top-level forms
+  → declaration collection and type checking
+  → native artifact</code></pre>
     </section>
 
     <section class="section" id="language">
-      <p class="eyebrow">Language</p>
-      <h2>Values, types, and expressions</h2>
-      <p>Names are case-sensitive. Comments begin with <code>;</code>. String and character literals are ASCII-only; strings are immutable NUL-terminated byte pointers. Named control characters include <code>#\tab</code>, <code>#\newline</code>, <code>#\vertical_tab</code>, <code>#\form_feed</code>, and <code>#\return</code>. A <code>char</code> automatically widens where an integer is expected, including C character APIs.</p>
+      <p class="eyebrow">2 — Language</p>
+      <h2>Verona core language</h2>
+      <p>Verona programs are written as S-expressions. Names are case-sensitive, and <code>;</code> begins a line comment. String and character literals are ASCII-only; strings are immutable NUL-terminated byte pointers. Named control characters include <code>#\tab</code>, <code>#\newline</code>, <code>#\vertical_tab</code>, <code>#\form_feed</code>, and <code>#\return</code>. A <code>char</code> automatically widens where an integer is expected.</p>
 
-      <h3>LLVM-lowerable types</h3>
+      <h3>Values and types</h3>
       <div class="table-scroll"><table>
-        <thead><tr><th>Verona type</th><th>LLVM representation</th><th>Notes</th></tr></thead>
+        <thead><tr><th>Verona type</th><th>Meaning</th></tr></thead>
         <tbody>
-          <tr><td><code>bool</code></td><td><code>i1</code></td><td>Boolean value.</td></tr>
-          <tr><td><code>char</code></td><td><code>i8</code></td><td>One ASCII code unit.</td></tr>
-          <tr><td><code>i8</code>…<code>i64</code>, <code>u8</code>…<code>u64</code></td><td>Matching integer width</td><td>Fixed-width signed and unsigned integers.</td></tr>
-          <tr><td><code>isize</code>, <code>usize</code></td><td>Pointer-width integer</td><td>Target-width integers.</td></tr>
-          <tr><td><code>f32</code>, <code>f64</code></td><td><code>float</code>, <code>double</code></td><td>Floating-point values.</td></tr>
-          <tr><td><code>(pointer T)</code></td><td>Opaque <code>ptr</code></td><td>Pointee information remains in Verona’s type system.</td></tr>
-          <tr><td><code>(array T N)</code></td><td><code>[N x T]</code></td><td>Fixed-size array.</td></tr>
-          <tr><td><code>(function (T...) R)</code></td><td>LLVM function type</td><td>Declaration and function-pointer shape.</td></tr>
-          <tr><td>Product type</td><td>Named LLVM struct</td><td>Ordered nominal fields.</td></tr>
-          <tr><td>Sum type</td><td>Named tagged-union struct</td><td>An <code>i32</code> tag plus shared aligned payload storage.</td></tr>
-          <tr><td>Opaque type</td><td>Opaque named LLVM struct</td><td>Owned by another ABI.</td></tr>
-          <tr><td><code>void</code></td><td>LLVM <code>void</code></td><td>C-result marker, not a Verona value.</td></tr>
-          <tr><td><code>unit</code></td><td>Target-width integer zero</td><td>The sole Verona unit value.</td></tr>
-          <tr><td><code>never</code></td><td>No runtime value</td><td>Terminating control flow.</td></tr>
+          <tr><td><code>bool</code></td><td>Boolean value.</td></tr>
+          <tr><td><code>char</code></td><td>One ASCII code unit.</td></tr>
+          <tr><td><code>i8</code>…<code>i64</code>, <code>u8</code>…<code>u64</code></td><td>Fixed-width signed and unsigned integers.</td></tr>
+          <tr><td><code>isize</code>, <code>usize</code></td><td>Target-width integers.</td></tr>
+          <tr><td><code>f32</code>, <code>f64</code></td><td>Floating-point values.</td></tr>
+          <tr><td><code>(pointer T)</code></td><td>Pointer to <code>T</code>; pointee information remains in Verona’s type system.</td></tr>
+          <tr><td><code>(array T N)</code></td><td>Fixed-size array.</td></tr>
+          <tr><td><code>(function (T...) R)</code></td><td>Function signature and function-pointer shape.</td></tr>
+          <tr><td>Product and sum types</td><td>Nominal records and alternatives for structured data.</td></tr>
+          <tr><td>Opaque type</td><td>A type owned by another interface and usable only behind a pointer.</td></tr>
+          <tr><td><code>void</code></td><td>No-value marker for a C-facing result, not a Verona value.</td></tr>
+          <tr><td><code>unit</code>, <code>never</code></td><td>The sole unit value and a terminating control-flow result.</td></tr>
         </tbody>
       </table></div>
 
@@ -64,40 +72,56 @@
     ((some number) number)))</code></pre></div>
         <div><h3>Core expressions</h3><ul class="compact-list"><li><code>let</code>, <code>do</code>, and <code>return</code> bind, sequence, and return values.</li><li><code>array-of</code> and <code>index</code> create and access fixed arrays.</li><li><code>field</code> reads a product field; <code>match</code> destructures sums.</li><li><code>&amp;</code>, <code>deref</code>, <code>assign</code>, <code>cast</code>, and <code>pointer-offset</code> express memory access explicitly; places are read implicitly when used as values.</li></ul></div>
       </div>
-      <h3>Polymorphism and metaprogramming</h3>
-      <div class="feature-grid"><article><h4>Generics</h4><p>Generic declarations dispatch to exact-type implementations.</p></article><article><h4>Type parameters</h4><p><code>for</code> binds type parameters; calls specialize before LLVM lowering.</p></article><article><h4>Protocols</h4><p>Protocols describe operations and constrain polymorphic functions.</p></article><article><h4>Macros</h4><p>Compile-time macros transform S-expressions and may generate top-level definitions.</p></article></div>
-      <h3>Modules, declarations, and reader features</h3>
-      <div class="two-columns"><div><ul class="compact-list"><li><code>type</code> declares transparent aliases, opaque handles, products, and sums.</li><li><code>function</code>, <code>constant</code>, and <code>variable</code> introduce program definitions.</li><li><code>external-function</code> imports a C symbol; <code>native-export</code> exposes a compatible function to C.</li><li><code>import</code>, <code>export</code>, and <code>:as</code> organize dotted modules and qualified names.</li></ul></div><div><p>Prefix a form with <code>#+name</code> to include it when a reader feature is available, or <code>#-name</code> when it is not. Native compilation provides platform, architecture, pointer-width, endianness, and object-format features. Add project features with repeated <code>--feature NAME</code> options.</p><pre><code>#+darwin
+      <h3>Polymorphism</h3>
+      <div class="feature-grid"><article><h4>Generics</h4><p>Generic declarations dispatch by argument types and, when needed, the expected result type.</p></article><article><h4>Type parameters</h4><p><code>for</code> binds type parameters for reusable typed functions.</p></article><article><h4>Protocols</h4><p>Protocols describe operations and constrain polymorphic functions.</p></article><article><h4>Modules</h4><p><code>import</code>, <code>export</code>, and <code>:as</code> organize dotted modules and qualified names.</p></article></div>
+      <h3>Declarations and reader features</h3>
+      <div class="two-columns"><div><ul class="compact-list"><li><code>type</code> declares transparent aliases, opaque handles, products, and sums.</li><li><code>function</code>, <code>constant</code>, and <code>variable</code> introduce program definitions.</li><li><code>external-function</code> imports a C symbol; <code>native-export</code> exposes a compatible function to C.</li><li>Prefix a form with <code>#+name</code> to include it when a reader feature is available, or <code>#-name</code> when it is not.</li></ul></div><div><p>The selected target provides platform, architecture, pointer-width, endianness, and object-format reader features. Add project features with repeated <code>--feature NAME</code> options.</p><pre><code>#+darwin
 (external-function mach-task-self
   "mach_task_self" () u32)</code></pre></div></div>
     </section>
 
-    <section class="section" id="macros">
-      <p class="eyebrow">Metaprogramming</p>
-      <h2>Compile-time functions</h2>
-      <p>Macro bodies evaluate ordinary S-expressions and return forms for the compiler to expand and compile. A macro returns one expression form inside executable code, or may return a top-level definition sequence at top level. Source locations are retained by the compiler and restored after expansion. The declarations in the explicit <code>base</code> module are imported macros, not built-in evaluator functions.</p>
+    <section class="section" id="libraries">
+      <p class="eyebrow">3 — Bundled package</p>
+      <h2>Base library</h2>
+      <p>The explicit <code>base</code> module provides surface declaration macros and the public protocol layer. Add <code>base/src</code> to a target’s module path, import it, and use its qualified forms.</p>
+      <aside class="note"><strong>A layer, not a language intrinsic:</strong> <code>base</code> is a bundled core package implemented in Verona on top of compiler primitive operations. A project may use a different library layer, define alternative surface conventions, or provide its own implementations when the default package does not fit its needs.</aside>
+      <p>Application programs should use operations exported by a module such as <code>base</code>, rather than compiler-internal <code>%…</code> primitives. Numeric type conversion is always explicit: use <code>base:convert</code> where a conversion is intended.</p>
+      <pre><code>(import base)
+
+(base:function total
+  (for (a)
+    ((base:numeric a)))
+  ((left a) (right a))
+  a
+  (+ left right))
+
+(base:function same
+  (for (a)
+    ((base:equality a)))
+  ((left a) (right a))
+  bool
+  (= left right))</code></pre>
+      <div class="feature-grid"><article><h4><code>base:numeric</code></h4><p>Supplies <code>+</code>, <code>-</code>, <code>*</code>, and <code>/</code>.</p></article><article><h4><code>base:equality</code></h4><p>Supplies <code>=</code>, including booleans.</p></article><article><h4><code>base:ordering</code></h4><p>Supplies <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, and <code>&gt;=</code>.</p></article><article><h4>Supported numbers</h4><p>All three numeric protocols cover <code>i8</code>…<code>i64</code>, <code>u8</code>…<code>u64</code>, <code>f32</code>, and <code>f64</code>.</p></article></div>
+    </section>
+
+    <section class="section" id="metaprogramming">
+      <p class="eyebrow">4 — Compile-time layer</p>
+      <h2>Metaprogramming reference</h2>
+      <p>Macros are compile-time programs that construct Verona syntax. A macro returns one expression form when used in executable code, or a sequence of top-level definitions when used at the top level. Source locations are retained by the compiler and restored after expansion.</p>
+      <p>The declarations in the explicit <code>base</code> module are imported macros, not built-in evaluator functions. <code>compiler:definition</code> and <code>compiler:fold-left</code> form the narrow compiler-facing bridge: the first constructs a compiler definition, and the second constructs a nested binary call tree.</p>
       <h3>Evaluator bindings</h3>
       <div class="table-scroll"><table><thead><tr><th>Function</th><th>Signature</th><th>Purpose</th></tr></thead><tbody>
         <tr><td><code>+</code></td><td><code>(+ NUMBER...)</code></td><td>Bootstrap arithmetic for evaluator tests and simple bootstrap macros; not a general-purpose macro library.</td></tr>
         <tr><td><code>definitions</code></td><td><code>(definitions FORM...)</code></td><td>Return zero or more top-level S-expression forms.</td></tr>
-        <tr><td><code>compiler:definition</code></td><td><code>(compiler:definition PRIMITIVE ARGUMENTS)</code></td><td>Build a compiler <code>%…</code> definition from its positional arguments; this powers the bundled <code>base</code> macros.</td></tr>
-        <tr><td><code>symbol</code></td><td><code>(symbol TEXT)</code></td><td>Construct an identifier from a non-empty string.</td></tr>
-        <tr><td><code>symbol-name</code></td><td><code>(symbol-name SYMBOL)</code></td><td>Return an identifier’s spelling.</td></tr>
-        <tr><td><code>symbol-concat</code></td><td><code>(symbol-concat PART...)</code></td><td>Join strings and identifiers into an identifier.</td></tr>
-        <tr><td><code>keyword</code></td><td><code>(keyword TEXT)</code></td><td>Construct an identifier for keyword-style conventions; it is not a reserved source keyword.</td></tr>
-        <tr><td><code>keyword-concat</code></td><td><code>(keyword-concat PART...)</code></td><td>Join strings and identifiers into an identifier for keyword-style conventions.</td></tr>
-        <tr><td><code>string-concat</code></td><td><code>(string-concat STRING...)</code></td><td>Join strings.</td></tr>
-        <tr><td><code>string-length</code></td><td><code>(string-length STRING)</code></td><td>Return a string’s character length.</td></tr>
-        <tr><td><code>substring</code></td><td><code>(substring STRING START [END])</code></td><td>Return the range beginning at zero-based <code>START</code> and ending before optional <code>END</code>.</td></tr>
-        <tr><td><code>list</code></td><td><code>(list VALUE...)</code></td><td>Construct a proper S-expression list.</td></tr>
-        <tr><td><code>cons</code></td><td><code>(cons VALUE LIST)</code></td><td>Prepend an S-expression value to a proper list.</td></tr>
-        <tr><td><code>car</code></td><td><code>(car LIST)</code></td><td>Return the first item of a non-empty proper list.</td></tr>
-        <tr><td><code>cdr</code></td><td><code>(cdr LIST)</code></td><td>Return all but the first item of a non-empty proper list.</td></tr>
-        <tr><td><code>append</code></td><td><code>(append LIST...)</code></td><td>Join proper lists.</td></tr>
-        <tr><td><code>length</code></td><td><code>(length VALUE)</code></td><td>Return the length of a string or proper list.</td></tr>
+        <tr><td><code>compiler:definition</code></td><td><code>(compiler:definition PRIMITIVE ARGUMENTS)</code></td><td>Build a compiler <code>%…</code> definition from its positional arguments.</td></tr>
+        <tr><td><code>compiler:fold-left</code></td><td><code>(compiler:fold-left HEAD INITIAL FORMS)</code></td><td>Build nested binary calls headed by <code>HEAD</code>.</td></tr>
+        <tr><td><code>symbol</code>, <code>symbol-name</code>, <code>symbol-concat</code></td><td>Identifier operations</td><td>Construct, inspect, and join identifiers.</td></tr>
+        <tr><td><code>keyword</code>, <code>keyword-concat</code></td><td>Identifier operations</td><td>Construct identifiers for keyword-style conventions; they are not reserved source keywords.</td></tr>
+        <tr><td><code>string-concat</code>, <code>string-length</code>, <code>substring</code></td><td>String operations</td><td>Construct and inspect strings.</td></tr>
+        <tr><td><code>list</code>, <code>cons</code>, <code>car</code>, <code>cdr</code>, <code>append</code>, <code>length</code></td><td>List operations</td><td>Construct and inspect finite, proper S-expression lists.</td></tr>
       </tbody></table></div>
-      <h3>Reader forms</h3>
-      <p><code>'FORM</code> quotes an S-expression, <code>`FORM</code> quasiquotes a template, and <code>,FORM</code> evaluates and inserts an S-expression inside that template. They are reader and evaluator forms, not function bindings.</p>
+      <h3>Quotes and templates</h3>
+      <p><code>'FORM</code> quotes an S-expression, <code>`FORM</code> quasiquotes a template, and <code>,FORM</code> evaluates and inserts an S-expression inside that template.</p>
       <pre><code>(import base)
 
 (base:macro generated-function (type)
@@ -105,10 +129,11 @@
      () ,type 42))</code></pre>
     </section>
 
-    <section class="section" id="c-abi">
-      <p class="eyebrow">Interop</p>
-      <h2>A defined C ABI boundary</h2>
-      <p>Use <code>external-function</code> to import a C symbol and <code>native-export</code> to publish a Verona function. Static and shared libraries receive a generated <code>.h</code> file beside the artifact.</p>
+    <section class="section" id="native">
+      <p class="eyebrow">5 — Native boundary</p>
+      <h2>Native interoperability and LLVM</h2>
+      <p>Verona lowers typed programs through LLVM to native artifacts. The LLVM layer implements Verona’s native-code pipeline; the language itself exposes a defined C ABI boundary for interoperating with existing native software.</p>
+      <p>Use <code>external-function</code> to import a C symbol and <code>native-export</code> to publish a compatible Verona function. Static and shared libraries receive a generated <code>.h</code> file beside the artifact.</p>
       <div class="table-scroll"><table>
         <thead><tr><th>Value shape</th><th>C contract</th><th>Availability</th></tr></thead>
         <tbody>
@@ -117,40 +142,35 @@
           <tr><td>Narrow signed and unsigned integers</td><td><code>int8_t</code>/<code>int16_t</code>, <code>uint8_t</code>/<code>uint16_t</code></td><td>C ABI sign or zero extension.</td></tr>
           <tr><td>Other numbers</td><td>Matching fixed-width integer, <code>float</code>, or <code>double</code></td><td>Parameters and results.</td></tr>
           <tr><td>Pointers</td><td>C pointer</td><td>Includes pointers to aggregates, opaque handles, <code>void</code>, and compatible functions.</td></tr>
-          <tr><td>Arrays</td><td>Generated wrapper <code>struct</code></td><td>By value when elements are compatible.</td></tr>
-          <tr><td>Products</td><td>Generated matching <code>struct</code></td><td>By value when fields are compatible.</td></tr>
-          <tr><td>Sums</td><td>Generated tagged-union <code>struct</code></td><td>By value when payloads are compatible.</td></tr>
+          <tr><td>Arrays, products, and sums</td><td>Generated C-compatible wrapper or <code>struct</code></td><td>By value when their contents are compatible.</td></tr>
           <tr><td>Opaque types</td><td>Forward-declared <code>struct Name</code></td><td>Pointer-only.</td></tr>
           <tr><td>Function type</td><td>C function pointer</td><td>Only as <code>(pointer (function (...) R))</code>.</td></tr>
           <tr><td><code>void</code></td><td><code>void</code></td><td>Result of an imported C function only.</td></tr>
         </tbody>
       </table></div>
-      <aside class="note"><strong>Excluded:</strong> <code>unit</code> and <code>never</code> are not C ABI values. Opaque types and function types are pointer-only. Verona can pass a named function to C as a callback, but cannot yet invoke an arbitrary function-pointer value itself.</aside>
+      <aside class="note"><strong>Function pointers:</strong> a function-pointer value can be passed, stored with same-signature pointers in an array, and invoked with ordinary call syntax. Opaque types and function types remain pointer-only at the C boundary.</aside>
       <pre><code>(external-function strlen "strlen" ((pointer u8)) usize)
 
 (function add ((left i32) (right i32)) i32
   (+ left right))
 
 (native-export add "verona_add")</code></pre>
+      <p>Variadic APIs and APIs that need exact C-layout callback storage require dedicated bindings before they can be called safely.</p>
     </section>
 
-    <section class="section" id="compiler">
-      <p class="eyebrow">Compiler surface</p>
-      <h2>Surface forms and compiler definitions</h2>
-      <p>Ordinary top-level declarations mechanically rewrite to compiler-recognized <code>%…</code> definitions. Application code should use the surface forms.</p>
-      <div class="table-scroll"><table><thead><tr><th>Surface form</th><th>Compiler definition</th><th>Purpose</th></tr></thead><tbody>
-        <tr><td><code>type</code></td><td><code>%type</code></td><td>Alias, opaque, product, or sum type.</td></tr><tr><td><code>function</code></td><td><code>%function</code></td><td>Function declaration.</td></tr><tr><td><code>external-function</code></td><td><code>%external-function</code></td><td>Imported C symbol.</td></tr><tr><td><code>macro</code></td><td><code>%macro</code></td><td>Syntax transformation.</td></tr><tr><td><code>constant</code></td><td><code>%constant</code></td><td>Immutable global.</td></tr><tr><td><code>variable</code></td><td><code>%variable</code></td><td>Mutable global.</td></tr><tr><td><code>generic</code></td><td><code>%generic</code></td><td>Generic callable declaration.</td></tr><tr><td><code>protocol</code></td><td><code>%protocol</code></td><td>Protocol declaration.</td></tr><tr><td><code>implementation</code></td><td><code>%implementation</code></td><td>Generic or protocol implementation.</td></tr>
-      </tbody></table></div>
-      <p>Top-level module directives do not have <code>%…</code> equivalents: <code>import</code>, <code>export</code>, and <code>native-export</code>.</p>
-      <h3>Reserved vocabulary</h3>
-      <p>Verona has contextual keywords rather than one globally prohibited identifier list. Treat the following spellings as reserved in their listed positions.</p>
-      <div class="reserved-grid"><article><h4>Reader literals</h4><p><code>unit</code>, <code>true</code>, <code>false</code>, numbers, strings, and <code>#\…</code> characters.</p></article><article><h4>Reader syntax</h4><p><code>(</code>, <code>)</code>, <code>"</code>, <code>;</code>, <code>#+feature</code>, <code>#-feature</code>.</p></article><article><h4>Type language</h4><p><code>pointer</code>, <code>array</code>, <code>function</code>, <code>product</code>, <code>sum</code>, <code>for</code>.</p></article><article><h4>Modules</h4><p><code>import</code>, <code>export</code>, <code>native-export</code>, <code>:as</code>, <code>.</code>, <code>:</code>.</p></article><article><h4>Expressions</h4><p><code>do</code>, <code>let</code>, <code>match</code>, <code>return</code>, <code>array-of</code>, <code>index</code>, <code>field</code>, <code>assign</code>, <code>store</code>, <code>cast</code>, <code>pointer-offset</code>, <code>&amp;</code>, <code>address-of</code>, <code>deref</code>, <code>dereference</code>.</p></article><article><h4>Patterns and internals</h4><p><code>_</code> is a wildcard pattern. The compiler owns the <code>%…</code> definition and primitive namespaces.</p></article></div>
-      <p>Predeclared types are <code>bool</code>, <code>char</code>, <code>void</code>, <code>i8</code>…<code>i64</code>, <code>u8</code>…<code>u64</code>, <code>isize</code>, <code>usize</code>, <code>f32</code>, <code>f64</code>, and <code>exit-code</code>. Predeclared generic operators are <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, and <code>&gt;=</code>.</p>
+    <section class="section" id="environment">
+      <p class="eyebrow">6 — Package setup</p>
+      <h2>Configuring environment</h2>
+      <p>Verona packages use two independent environment variables. <code>VERONA_SOURCE_DIR</code> identifies the absolute root directory containing Verona package sources. <code>VERONA_LIBRARY_DIR</code> identifies the absolute root directory containing installed Verona package artifacts.</p>
+      <pre><code>export VERONA_SOURCE_DIR="$HOME/.local/src/verona"
+export VERONA_LIBRARY_DIR="$HOME/.local/lib/verona"</code></pre>
+      <p>These variables describe Verona package locations only. They do not configure C-library discovery; native libraries remain target-specific build inputs.</p>
+      <p>The bundled bootstrap tutorial checks both variables, explains any missing setup, and prints links to the Verona site and source repository. Run it from the repository root with <code>make bootstrap</code>.</p>
     </section>
 
     <section class="section" id="tooling">
-      <p class="eyebrow">Tooling</p>
-      <h2>Command line and declarative builds</h2>
+      <p class="eyebrow">7 — Build tools</p>
+      <h2>Build and package tooling</h2>
       <div class="two-columns"><div><h3>Commands</h3><pre><code>verona --version
 verona compile SOURCE [options]
 verona build TARGET OUTPUT-DIRECTORY [--feature NAME]...</code></pre><p><code>compile</code> builds one root source file. <code>build</code> finds <code>verona.build</code> in the current directory and writes the selected target beneath the output directory.</p></div><div><h3>Build file</h3><pre><code>(executable app
@@ -160,7 +180,7 @@ verona build TARGET OUTPUT-DIRECTORY [--feature NAME]...</code></pre><p><code>co
   (library "sqlite3"))</code></pre><p>Build files are declarative data: Verona forms inside them are never expanded or evaluated.</p></div></div>
       <h3>Compile options</h3>
       <div class="table-scroll"><table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
-        <tr><td><code>--version</code>, <code>-V</code></td><td>Print the Verona release version.</td></tr><tr><td><code>-o PATH</code>, <code>--output PATH</code></td><td>Set the artifact path.</td></tr><tr><td><code>--emit object|executable|static-library|shared-library</code></td><td>Choose artifact kind; executable is the default.</td></tr><tr><td><code>--target TRIPLE</code></td><td>Select an LLVM target triple.</td></tr><tr><td><code>--cpu CPU</code></td><td>Select a CPU; defaults to <code>generic</code>.</td></tr><tr><td><code>--features FEATURES</code></td><td>Pass an LLVM target-feature string.</td></tr><tr><td><code>--feature NAME</code></td><td>Enable a reader feature; repeatable.</td></tr><tr><td><code>-l NAME</code>, <code>--library NAME</code></td><td>Link <code>-lNAME</code>; repeatable.</td></tr><tr><td><code>-L PATH</code>, <code>--library-path PATH</code></td><td>Add a library-search path; repeatable.</td></tr><tr><td><code>--framework NAME</code></td><td>Link a Darwin framework; repeatable and Darwin-only.</td></tr>
+        <tr><td><code>--version</code>, <code>-V</code></td><td>Print the Verona release version.</td></tr><tr><td><code>-o PATH</code>, <code>--output PATH</code></td><td>Set the artifact path.</td></tr><tr><td><code>--emit object|executable|static-library|shared-library</code></td><td>Choose artifact kind; executable is the default.</td></tr><tr><td><code>--target TRIPLE</code></td><td>Select a native target triple.</td></tr><tr><td><code>--cpu CPU</code></td><td>Select a CPU; defaults to <code>generic</code>.</td></tr><tr><td><code>--features FEATURES</code></td><td>Pass a target-feature string.</td></tr><tr><td><code>--feature NAME</code></td><td>Enable a reader feature; repeatable.</td></tr><tr><td><code>-l NAME</code>, <code>--library NAME</code></td><td>Link <code>-lNAME</code>; repeatable.</td></tr><tr><td><code>-L PATH</code>, <code>--library-path PATH</code></td><td>Add a library-search path; repeatable.</td></tr><tr><td><code>--framework NAME</code></td><td>Link a Darwin framework; repeatable and Darwin-only.</td></tr>
       </tbody></table></div>
       <h3>Executable arguments</h3>
       <p>An executable can receive the platform command line with a C-compatible entry declaration. <code>argc</code> includes the executable name; <code>argv</code> points to its NUL-terminated byte strings.</p>
@@ -169,21 +189,13 @@ verona build TARGET OUTPUT-DIRECTORY [--feature NAME]...</code></pre><p><code>co
                         (deref (pointer-offset argv 1))))
     ; parse first-argument when argc is at least 2
     0))</code></pre>
-      <p><code>pointer-offset</code> advances a pointer by an integer number of pointee elements. It requires a pointer to a complete type; as with C pointer arithmetic, the program owns bounds and lifetime safety. Existing zero-argument <code>main</code> declarations remain supported for compatibility.</p>
       <h3><code>verona.build</code> clauses</h3>
       <p>A build file contains one or more <code>executable</code>, <code>static-library</code>, or <code>shared-library</code> declarations. Every target requires exactly one <code>(root module.name)</code> clause.</p>
       <div class="table-scroll"><table><thead><tr><th>Clause</th><th>Description</th></tr></thead><tbody>
-        <tr><td><code>(root module.name)</code></td><td>Required root module.</td></tr><tr><td><code>(module-path "PATH")</code></td><td>Add a module search path; repeatable. Defaults to the build file directory.</td></tr><tr><td><code>(target native)</code></td><td>Use the native target; the default.</td></tr><tr><td><code>(target "TRIPLE")</code></td><td>Use an explicit LLVM target triple.</td></tr><tr><td><code>(optimize 0)</code>…<code>(optimize 3)</code></td><td>Set optimization; default is <code>0</code>.</td></tr><tr><td><code>(version "VERSION")</code></td><td>Declare a release version for the target.</td></tr><tr><td><code>(features NAME...)</code></td><td>Set target reader features; may appear once.</td></tr><tr><td><code>(library "NAME")</code></td><td>Link a native library; repeatable.</td></tr><tr><td><code>(library-path "PATH")</code></td><td>Add a native library-search path; repeatable.</td></tr><tr><td><code>(framework "NAME")</code></td><td>Link a Darwin framework; repeatable and Darwin-only.</td></tr>
+        <tr><td><code>(root module.name)</code></td><td>Required root module.</td></tr><tr><td><code>(module-path "PATH")</code></td><td>Add a module search path; repeatable. Defaults to the build file directory.</td></tr><tr><td><code>(target native)</code></td><td>Use the native target; the default.</td></tr><tr><td><code>(target "TRIPLE")</code></td><td>Use an explicit target triple.</td></tr><tr><td><code>(optimize 0)</code>…<code>(optimize 3)</code></td><td>Set optimization; default is <code>0</code>.</td></tr><tr><td><code>(version "VERSION")</code></td><td>Declare a release version for the target.</td></tr><tr><td><code>(features NAME...)</code></td><td>Set target reader features; may appear once.</td></tr><tr><td><code>(library "NAME")</code></td><td>Link a native library; repeatable.</td></tr><tr><td><code>(library-path "PATH")</code></td><td>Add a native library-search path; repeatable.</td></tr><tr><td><code>(framework "NAME")</code></td><td>Link a Darwin framework; repeatable and Darwin-only.</td></tr>
       </tbody></table></div>
       <aside class="note">Relative module and library paths are resolved from the directory containing <code>verona.build</code>. Reader features are layered as target-provided features, command-line <code>--feature</code> values, then the target’s <code>(features ...)</code> clause.</aside>
-      <h3>Verona package environment</h3>
-      <p>Verona packages use two required, independent absolute environment variables: <code>VERONA_SOURCE_DIR</code> identifies the canonical package-source root, and <code>VERONA_LIBRARY_DIR</code> identifies the canonical installed-artifact root. Future Verona install and package-discovery commands use the same pair, so a user-local environment can remain isolated from a shared installation.</p>
-      <pre><code>export VERONA_SOURCE_DIR="$HOME/.local/src/verona"
-export VERONA_LIBRARY_DIR="$HOME/.local/lib/verona"</code></pre>
-      <p>These variables are only for Verona packages. Native C libraries remain build-specific: pass their locations with <code>-L</code>/<code>--library-path</code>, names with <code>-l</code>/<code>--library</code>, or use <code>pkg-config</code>.</p>
     </section>
-
-    <section class="section limits"><p class="eyebrow">Current limits</p><h2>Designed boundaries</h2><ul class="compact-list"><li>Unicode strings and characters are not supported yet.</li><li>Recursive inline type layouts are rejected.</li><li>Opaque values cannot be materialized or dereferenced.</li><li>Nested sum constructor patterns are not supported.</li><li>Integer and floating-point conversions are explicit; <code>char</code> widens to an integer automatically.</li></ul></section>
   </main>
   <footer><p><strong>Verona</strong> is released under the <a href="https://github.com/diasbruno/verona/blob/development/license">Unlicense</a>.</p><p><a href="https://github.com/diasbruno/verona/blob/development/docs/API.md">API reference</a> · <a href="https://github.com/diasbruno/verona/blob/development/docs/ROADMAP.md">Roadmap</a> · <a href="https://github.com/diasbruno/verona">Source repository</a></p></footer>
 </body>
