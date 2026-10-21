@@ -13,7 +13,7 @@
   <header class="site-header">
     <a class="brand" href="../" aria-label="Verona home"><span class="brand-mark" aria-hidden="true">V</span><span>Verona</span></a>
     <nav aria-label="Primary navigation">
-      <a href="#compilation">Compilation</a><a href="#language">Language</a><a href="#libraries">Base</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a>
+      <a href="#compilation">Compilation</a><a href="#language">Language</a><a href="#libraries">Base</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a><a href="#editor">Emacs IDE</a>
     </nav>
   </header>
 
@@ -22,7 +22,7 @@
       <p class="eyebrow">Reference manual</p>
       <h1>Verona, from source form to native boundary.</h1>
       <p class="lede">A guide to Verona’s programmable compilation model, core language, bundled base package, native boundary, and build environment.</p>
-      <nav class="toc" aria-label="Manual contents"><a href="#compilation">Two layers</a><a href="#language">Core language</a><a href="#libraries">Base library</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native boundary</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a></nav>
+      <nav class="toc" aria-label="Manual contents"><a href="#compilation">Two layers</a><a href="#language">Core language</a><a href="#libraries">Base library</a><a href="#metaprogramming">Metaprogramming</a><a href="#native">Native boundary</a><a href="#environment">Environment</a><a href="#tooling">Tooling</a><a href="#editor">Emacs IDE</a></nav>
     </section>
 
     <section class="section" id="compilation">
@@ -171,6 +171,18 @@ export VERONA_LIBRARY_DIR="$HOME/.local/lib/verona"</code></pre>
     <section class="section" id="tooling">
       <p class="eyebrow">7 — Build tools</p>
       <h2>Build and package tooling</h2>
+      <h3>Build and install</h3>
+      <p>Install SBCL with ASDF, Bash, LLVM 23, Clang, <code>llvm-ar</code>, Autoconf, Automake, and Make using your preferred toolchain setup. Make LLVM’s shared libraries available to SBCL and make the bundled CL-LLVM bindings and their Common Lisp dependencies available to ASDF. The bindings are pinned in the <code>vendor/CL-LLVM</code> submodule from <a href="https://github.com/verona-project/CL-LLVM">verona-project/CL-LLVM</a>.</p>
+      <p>Initialize the pinned submodule (or clone with <code>--recurse-submodules</code>), then configure and build from the repository root:</p>
+      <pre><code>git submodule update --init --recursive
+export VERONA_CL_LLVM="$PWD/vendor/CL-LLVM"
+autoreconf -fi
+./configure --prefix=/usr/local
+make build
+make install</code></pre>
+      <p>Configuration finds SBCL, Clang, and <code>llvm-ar</code> on <code>PATH</code>. Select explicit linker or archiver paths with <code>--with-linker=PATH</code> and <code>--with-archiver=PATH</code>.</p>
+      <aside class="note"><strong>Optional Nix environment:</strong> if you use Nix 2.27 or later with flakes enabled, run <code>nix develop</code> from the repository root before configuring. The supplied shell provides the pinned LLVM bindings, SBCL dependencies, and native toolchain, and sets <code>VERONA_CL_LLVM</code>, <code>VERONA_LINKER</code>, and <code>VERONA_AR</code>.</aside>
+      <p><code>make build</code> creates <code>build/verona</code> and <code>build/verona-server</code>. Installation places them side by side in <code>PREFIX/bin</code>; the default prefix is <code>/usr/local</code>. The Bash server launcher embeds its Lisp entry point, so there is no separate server Lisp file to install. It uses SBCL and the configured checkout and toolchain environment. A prefix saved by an earlier configure invocation stays in effect until reconfigured.</p>
       <div class="two-columns"><div><h3>Commands</h3><pre><code>verona --version
 verona compile SOURCE [options]
 verona build TARGET OUTPUT-DIRECTORY [--feature NAME]...</code></pre><p><code>compile</code> builds one root source file. <code>build</code> finds <code>verona.build</code> in the current directory and writes the selected target beneath the output directory.</p></div><div><h3>Build file</h3><pre><code>(executable app
@@ -195,6 +207,42 @@ verona build TARGET OUTPUT-DIRECTORY [--feature NAME]...</code></pre><p><code>co
         <tr><td><code>(root module.name)</code></td><td>Required root module.</td></tr><tr><td><code>(module-path "PATH")</code></td><td>Add a module search path; repeatable. Defaults to the build file directory.</td></tr><tr><td><code>(target native)</code></td><td>Use the native target; the default.</td></tr><tr><td><code>(target "TRIPLE")</code></td><td>Use an explicit target triple.</td></tr><tr><td><code>(optimize 0)</code>…<code>(optimize 3)</code></td><td>Set optimization; default is <code>0</code>.</td></tr><tr><td><code>(version "VERSION")</code></td><td>Declare a release version for the target.</td></tr><tr><td><code>(features NAME...)</code></td><td>Set target reader features; may appear once.</td></tr><tr><td><code>(library "NAME")</code></td><td>Link a native library; repeatable.</td></tr><tr><td><code>(library-path "PATH")</code></td><td>Add a native library-search path; repeatable.</td></tr><tr><td><code>(framework "NAME")</code></td><td>Link a Darwin framework; repeatable and Darwin-only.</td></tr>
       </tbody></table></div>
       <aside class="note">Relative module and library paths are resolved from the directory containing <code>verona.build</code>. Reader features are layered as target-provided features, command-line <code>--feature</code> values, then the target’s <code>(features ...)</code> clause.</aside>
+    </section>
+    <section class="section" id="editor">
+      <p class="eyebrow">8 — Interactive development</p>
+      <h2>Emacs and SLIME</h2>
+      <p>The optional Emacs integration provides explicit module evaluation, cached completion and signatures, Xref navigation, Flymake diagnostics, inspection buffers, and project build/run commands. Use Emacs 28.1 or later with SLIME installed.</p>
+      <h3>Editor setup</h3>
+      <p>Load the editor integration and identify the checkout and package directories:</p>
+      <pre><code>(add-to-list 'load-path "/absolute/path/to/verona/editors/emacs")
+(require 'verona-mode)
+(require 'verona-ide)
+(setq verona-server-directory "/absolute/path/to/verona"
+      verona-server-environment
+      '("VERONA_SOURCE_DIR=/absolute/path/to/verona/projects"
+        "VERONA_LIBRARY_DIR=/absolute/path/to/verona/build"))</code></pre>
+      <p>The package paths must be existing readable absolute local directories. The server also needs the pinned LLVM bindings through <code>VERONA_CL_LLVM</code> and the native toolchain used for CLI builds. Start Emacs from <code>nix develop</code> to inherit that environment, or configure it explicitly.</p>
+      <p>The default server command is <code>verona-server</code>, which uses <code>sbcl</code>; it does not invoke Nix automatically. The editor looks in its executable paths, beside a located <code>verona</code>, common installation locations, and the checkout’s <code>build/verona-server</code>. Set <code>verona-server-command</code> to customize the launcher, <code>verona-server-startup-arguments</code> for SBCL options, or <code>VERONA_IDE_SBCL</code> to select another SBCL executable.</p>
+      <p>Run <code>M-x verona-help</code> to see the complete startup checklist, effective values, and resolved launcher. Missing or invalid settings open <code>*Verona help*</code> and prevent startup. Press <code>g</code> to refresh. An unset LLVM path is marked CHECK ON START because an explicitly configured development shell may supply it; the server checks it before loading systems.</p>
+      <h3>Developer workflow</h3>
+      <ol>
+        <li>Run <code>verona-start-server</code> and wait for “Verona ready.” Startup connects SLIME and loads the adapter and project/build support. The default host is <code>127.0.0.1</code>, with an available port selected automatically.</li>
+        <li>Run <code>verona-open-project</code>, choose a folder containing <code>verona.build</code>, and select its target. A sole target is automatic. The target’s root module opens.</li>
+        <li>Press <code>C-c C-e</code> to analyze the current module and required dependencies, including unsaved attached buffers. Use completion, Eldoc, Xref, Flymake, and inspection commands to query cached results.</li>
+        <li>Run <code>verona-ide-build</code> or <code>verona-ide-run</code> to build saved files. Run builds first and launches only a successful executable. The editor offers to save modified buffers; <code>verona-ide-save-and-build</code> and <code>verona-ide-save-build-and-run</code> save before building.</li>
+        <li>Run <code>verona-close-project</code> to release the selected session and its work while keeping source buffers and unsaved edits. Run <code>verona-stop-server</code> to release remaining sessions and stop the managed server.</li>
+      </ol>
+      <aside class="note"><strong>Explicit evaluation:</strong> startup, project opening, edits, saves, and ordinary queries never evaluate modules or start builds. Analysis may evaluate compile-time macros; application code runs through an explicit project build/run operation.</aside>
+      <p>Project and target sessions are independent. Use <code>C-u M-x verona-open-project</code> to name another target without closing existing sessions. Each source buffer uses one selected session. Disconnecting SLIME preserves sessions and pending evaluation; reconnect with <code>verona-start-server</code> and reopen the project. Explicit project closure releases its session, so reopening creates a fresh one. Stopping the managed server leaves unrelated Lisp processes running.</p>
+      <h3>Diagnostics and output</h3>
+      <div class="table-scroll"><table><thead><tr><th>Operation</th><th>Where to look</th></tr></thead><tbody>
+        <tr><td>Module evaluation</td><td>Flymake in source buffers and <code>verona-ide-project-diagnostics</code> for cached project diagnostics.</td></tr>
+        <tr><td>Build or run</td><td>A separate <code>*Verona build*</code> buffer with output, diagnostics, source locations when available, and program exit status.</td></tr>
+        <tr><td>Startup settings</td><td><code>*Verona help*</code> for the checklist and resolved launcher.</td></tr>
+        <tr><td>Server initialization</td><td><code>*Verona server*</code> for process output and startup failures.</td></tr>
+        <tr><td>Rejected IDE request</td><td>The minibuffer; run <code>verona-ide-last-error</code> in the originating buffer for the full response.</td></tr>
+      </tbody></table></div>
+      <p>Editor and server paths must refer to the same local files; TRAMP is unsupported. See the <a href="https://github.com/diasbruno/verona/blob/development/editors/emacs/README.md">Emacs setup guide</a> for configuration, external servers, process controls, and troubleshooting.</p>
     </section>
   </main>
   <footer><p><strong>Verona</strong> is released under the <a href="https://github.com/diasbruno/verona/blob/development/license">Unlicense</a>.</p><p><a href="https://github.com/diasbruno/verona/blob/development/docs/API.md">API reference</a> · <a href="https://github.com/diasbruno/verona/blob/development/docs/ROADMAP.md">Roadmap</a> · <a href="https://github.com/diasbruno/verona">Source repository</a></p></footer>
